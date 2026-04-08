@@ -1,0 +1,5 @@
+<style>
+.service-card:nth-child(3) { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+.service-card:nth-child(3) h3 { color: white; }
+.service-card:nth-child(3) .price { color: #FFD700; }
+</style>

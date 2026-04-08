@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>AssistAdmin Pro - Assistant Administratif</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { text-align: center; color: white; margin-bottom: 40px; }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .services { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .service-card { background: white; border-radius: 15px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); cursor: pointer; transition: transform 0.3s; }
+        .service-card:hover { transform: translateY(-5px); }
+        .service-card h3 { color: #667eea; margin-bottom: 10px; }
+        .service-card .price { color: #4CAF50; font-size: 1.2em; font-weight: bold; margin: 15px 0; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; border-radius: 15px; padding: 30px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        button { background: #667eea; color: white; padding: 12px 30px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 5px; }
+        button:hover { background: #5a67d8; }
+        .instructions { background: #fff3cd; border: 1px solid #ffc107; border-radius: 10px; padding: 20px; margin-top: 20px; }
+        .instructions h4 { color: #856404; margin-bottom: 10px; }
+        .instructions p { margin: 10px 0; }
+        .result-box { background: #f0f0f0; border-radius: 10px; padding: 15px; margin-top: 20px; white-space: pre-wrap; font-family: monospace; font-size: 14px; max-height: 400px; overflow-y: auto; }
+        .copy-btn { background: #28a745; margin-top: 10px; }
+        .copy-btn:hover { background: #218838; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AssistAdmin Pro</h1>
+            <p>Assistant administratif intelligent</p>
+            <div class="instructions">
+                <h4>📋 Comment utiliser gratuitement (via Claude.ai) :</h4>
+                <p>1️⃣ Remplissez le formulaire ci-dessous</p>
+                <p>2️⃣ Copiez le <strong>prompt généré</strong> (bouton 📋)</p>
+                <p>3️⃣ Allez sur <a href="https://claude.ai" target="_blank"><strong>claude.ai</strong></a> (gratuit)</p>
+                <p>4️⃣ Collez le prompt et obtenez votre document professionnel !</p>
+            </div>
+        </div>
+        
+        <div class="services">
+            <div class="service-card" onclick="openModal('cv')">
+                <h3>📄 CV Professionnel</h3>
+                <p>Générez un CV sur mesure</p>
+                <div class="price">2 000 - 5 000 FCFA</div>
+            </div>
+            
+            <div class="service-card" onclick="openModal('letter')">
+                <h3>✉️ Lettres</h3>
+                <p>Motivation, administratives, réclamations</p>
+                <div class="price">1 000 - 3 000 FCFA</div>
+            </div>
+            
+            <div class="service-card" onclick="openModal('dossier')">
+                <h3>📁 Assistant Dossiers</h3>
+                <p>Aide à la constitution de dossiers</p>
+                <div class="price">Sur devis</div>
+            </div>
+            
+            <div class="service-card" onclick="openModal('correction')">
+                <h3>🔧 Correction de documents</h3>
+                <p>Corrigez et améliorez vos textes</p>
+                <div class="price">1 000 - 3 000 FCFA</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal CV -->
+    <div id="modal-cv" class="modal">
+        <div class="modal-content">
+            <h2>📄 Générateur de CV</h2>
+            <form id="cv-form">
+                <div class="form-group"><label>Nom complet</label><input type="text" id="cv-nom" required></div>
+                <div class="form-group"><label>Email</label><input type="email" id="cv-email"></div>
+                <div class="form-group"><label>Téléphone</label><input type="tel" id="cv-tel"></div>
+                <div class="form-group"><label>Expériences (une par ligne)</label><textarea id="cv-exp" rows="3" placeholder="Ex: Commercial chez Orange - 2022 à 2024"></textarea></div>
+                <div class="form-group"><label>Formations</label><textarea id="cv-formations" rows="2"></textarea></div>
+                <div class="form-group"><label>Compétences (séparées par virgules)</label><input type="text" id="cv-competences"></div>
+                <div class="form-group"><label>Style</label><select id="cv-style"><option>Professionnel</option><option>Créatif</option><option>Minimaliste</option></select></div>
+                <button type="submit">Générer le prompt</button>
+            </form>
+            <div id="cv-prompt" style="display:none;">
+                <h3>📋 Copiez ce prompt :</h3>
+                <div class="result-box" id="cv-prompt-text"></div>
+                <button class="copy-btn" onclick="copyToClipboard('cv-prompt-text')">📋 Copier</button>
+            </div>
+            <button onclick="closeModal('cv')" style="margin-top:10px; background:#999;">Fermer</button>
+        </div>
+    </div>
+
+    <!-- Modal Lettre -->
+    <div id="modal-letter" class="modal">
+        <div class="modal-content">
+            <h2>✉️ Générateur de Lettre</h2>
+            <form id="letter-form">
+                <div class="form-group"><label>Type de lettre</label><select id="letter-type"><option>Lettre de motivation</option><option>Lettre administrative</option><option>Lettre de réclamation</option></select></div>
+                <div class="form-group"><label>Destinataire</label><input type="text" id="letter-dest"></div>
+                <div class="form-group"><label>Objet</label><input type="text" id="letter-objet"></div>
+                <div class="form-group"><label>Votre nom</label><input type="text" id="letter-nom"></div>
+                <div class="form-group"><label>Message spécifique</label><textarea id="letter-msg" rows="4"></textarea></div>
+                <button type="submit">Générer le prompt</button>
+            </form>
+            <div id="letter-prompt" style="display:none;">
+                <h3>📋 Copiez ce prompt :</h3>
+                <div class="result-box" id="letter-prompt-text"></div>
+                <button class="copy-btn" onclick="copyToClipboard('letter-prompt-text')">📋 Copier</button>
+            </div>
+            <button onclick="closeModal('letter')" style="margin-top:10px; background:#999;">Fermer</button>
+        </div>
+    </div>
+
+    <!-- Modal Dossiers -->
+    <div id="modal-dossier" class="modal">
+        <div class="modal-content">
+            <h2>📁 Assistant Dossiers</h2>
+            <form id="dossier-form">
+                <div class="form-group"><label>Type de démarche</label><select id="dossier-type"><option>Carte d'identité</option><option>Passeport</option><option>Attestation de résidence</option></select></div>
+                <div class="form-group"><label>Situation</label><textarea id="dossier-situation" rows="3"></textarea></div>
+                <div class="form-group"><label>Documents possédés</label><input type="text" id="dossier-docs"></div>
+                <button type="submit">Générer le guide</button>
+            </form>
+            <div id="dossier-prompt" style="display:none;">
+                <h3>📋 Copiez ce prompt :</h3>
+                <div class="result-box" id="dossier-prompt-text"></div>
+                <button class="copy-btn" onclick="copyToClipboard('dossier-prompt-text')">📋 Copier</button>
+            </div>
+            <button onclick="closeModal('dossier')" style="margin-top:10px; background:#999;">Fermer</button>
+        </div>
+    </div>
+
+    <!-- Modal Correction -->
+    <div id="modal-correction" class="modal">
+        <div class="modal-content">
+            <h2>🔧 Correction de documents</h2>
+            <form id="correction-form">
+                <div class="form-group"><label>Type de document</label><select id="correction-type"><option>CV</option><option>Lettre</option><option>Email</option></select></div>
+                <div class="form-group"><label>Texte à corriger</label><textarea id="correction-content" rows="8"></textarea></div>
+                <button type="submit">Générer la correction</button>
+            </form>
+            <div id="correction-prompt" style="display:none;">
+                <h3>📋 Copiez ce prompt :</h3>
+                <div class="result-box" id="correction-prompt-text"></div>
+                <button class="copy-btn" onclick="copyToClipboard('correction-prompt-text')">📋 Copier</button>
+            </div>
+            <button onclick="closeModal('correction')" style="margin-top:10px; background:#999;">Fermer</button>
+        </div>
+    </div>
+
+    <script>
+        function openModal(type) {
+            document.getElementById(`modal-${type}`).style.display = 'flex';
+        }
+        function closeModal(type) {
+            document.getElementById(`modal-${type}`).style.display = 'none';
+        }
+        function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            navigator.clipboard.writeText(text);
+            alert('✅ Prompt copié ! Allez sur claude.ai');
+        }
+
+        // CV form
+        document.getElementById('cv-form').onsubmit = function(e) {
+            e.preventDefault();
+            const prompt = `CV pour ${document.getElementById('cv-nom').value}\nExp: ${document.getElementById('cv-exp').value}`;
+            document.getElementById('cv-prompt-text').innerText = prompt;
+            document.getElementById('cv-prompt').style.display = 'block';
+        };
+        // Letter form
+        document.getElementById('letter-form').onsubmit = function(e) {
+            e.preventDefault();
+            const prompt = `Lettre: ${document.getElementById('letter-objet').value}`;
+            document.getElementById('letter-prompt-text').innerText = prompt;
+            document.getElementById('letter-prompt').style.display = 'block';
+        };
+        // Dossier form
+        document.getElementById('dossier-form').onsubmit = function(e) {
+            e.preventDefault();
+            const prompt = `Dossier: ${document.getElementById('dossier-type').value}`;
+            document.getElementById('dossier-prompt-text').innerText = prompt;
+            document.getElementById('dossier-prompt').style.display = 'block';
+        };
+        // Correction form
+        document.getElementById('correction-form').onsubmit = function(e) {
+            e.preventDefault();
+            const prompt = `Corrige ce ${document.getElementById('correction-type').value}:\n${document.getElementById('correction-content').value}`;
+            document.getElementById('correction-prompt-text').innerText = prompt;
+            document.getElementById('correction-prompt').style.display = 'block';
+        };
+
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) event.target.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
+
+<style>
+.prompt-actions { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+.pdf-btn { background: #dc3545; }
+.pdf-btn:hover { background: #c82333; }
+.payment-btn { background: #ffc107; color: #333; }
+.payment-btn:hover { background: #e0a800; }
+.whatsapp-btn { background: #25D366; }
+.whatsapp-btn:hover { background: #128C7E; }
+</style>
+
+<script>
+// Fonction pour sauvegarder en PDF (fichier texte)
+function saveAsText(elementId, filename) {
+    const content = document.getElementById(elementId).innerText;
+    const blob = new Blob([content], {type: 'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'document_prompt.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+    alert('✅ Fichier sauvegardé !');
+}
+
+// Fonction de paiement (simulation)
+function showPayment(service, amount) {
+    const phone = prompt(`💰 Paiement de ${amount} FCFA\n\nVeuillez entrer votre numéro Orange Money / Wave / MTN Mobile Money :\nEx: 77 123 45 67`);
+    if (phone && phone.length >= 8) {
+        const code = Math.floor(Math.random() * 1000000);
+        alert(`✅ Demande de paiement envoyée au ${phone}\n📱 Code de confirmation: ${code}\n\n💡 Astuce: Pour le test gratuit, utilisez directement Claude.ai !`);
+    } else {
+        alert("Numéro invalide. Utilisez l'option gratuite via Claude.ai");
+    }
+}
+
+// Amélioration de copyToClipboard
+const originalCopy = window.copyToClipboard;
+window.copyToClipboard = function(elementId) {
+    const text = document.getElementById(elementId).innerText;
+    navigator.clipboard.writeText(text);
+    
+    // Stocker pour le PDF
+    const hiddenDiv = document.getElementById('current-prompt-store');
+    if (hiddenDiv) hiddenDiv.innerText = text;
+    else {
+        const div = document.createElement('div');
+        div.id = 'current-prompt-store';
+        div.style.display = 'none';
+        div.innerText = text;
+        document.body.appendChild(div);
+    }
+    
+    alert('✅ Prompt copié ! Allez sur claude.ai (gratuit) ou utilisez les boutons ci-dessous');
+}
+
+// Ajouter les boutons PDF et Paiement après chaque prompt
+function addActionButtons(containerId, promptId, serviceType, amount) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'prompt-actions';
+    actionsDiv.innerHTML = `
+        <button class="pdf-btn" onclick="saveAsText('${promptId}', '${serviceType}_prompt.txt')">📄 Sauvegarder le prompt</button>
+        <button class="payment-btn" onclick="showPayment('${serviceType}', '${amount}')">💳 Paiement Mobile (${amount} FCFA)</button>
+        <button class="whatsapp-btn" onclick="shareToWhatsApp('${promptId}')">📱 Partager sur WhatsApp</button>
+    `;
+    container.appendChild(actionsDiv);
+}
+
+// Partager sur WhatsApp
+function shareToWhatsApp(elementId) {
+    const text = document.getElementById(elementId).innerText;
+    const encodedText = encodeURIComponent(text.substring(0, 500) + "...\n\n(Utilisez Claude.ai pour générer le document)");
+    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+}
+
+// Modifier les formulaires existants pour ajouter les boutons
+function enhanceForms() {
+    // CV
+    const cvPrompt = document.getElementById('cv-prompt');
+    if (cvPrompt && !cvPrompt.hasAttribute('data-enhanced')) {
+        addActionButtons('cv-prompt', 'cv-prompt-text', 'cv', '3500');
+        cvPrompt.setAttribute('data-enhanced', 'true');
+    }
+    // Lettre
+    const letterPrompt = document.getElementById('letter-prompt');
+    if (letterPrompt && !letterPrompt.hasAttribute('data-enhanced')) {
+        addActionButtons('letter-prompt', 'letter-prompt-text', 'letter', '2000');
+        letterPrompt.setAttribute('data-enhanced', 'true');
+    }
+    // Dossier
+    const dossierPrompt = document.getElementById('dossier-prompt');
+    if (dossierPrompt && !dossierPrompt.hasAttribute('data-enhanced')) {
+        addActionButtons('dossier-prompt', 'dossier-prompt-text', 'dossier', '5000');
+        dossierPrompt.setAttribute('data-enhanced', 'true');
+    }
+    // Correction
+    const correctionPrompt = document.getElementById('correction-prompt');
+    if (correctionPrompt && !correctionPrompt.hasAttribute('data-enhanced')) {
+        addActionButtons('correction-prompt', 'correction-prompt-text', 'correction', '2000');
+        correctionPrompt.setAttribute('data-enhanced', 'true');
+    }
+}
+
+// Appeler enhanceForms après chaque génération
+setInterval(enhanceForms, 500);
+</script>
