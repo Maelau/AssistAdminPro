@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.services.claude_service import ClaudeService
 import os
+import pathlib
 
 app = FastAPI(title="AssistAdmin Pro API", version="1.0.0")
 
@@ -15,13 +15,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Servir l'interface web (fichier HTML)
+# Obtenir le chemin absolu du répertoire courant
+BASE_DIR = pathlib.Path(__file__).parent.parent
+TEMPLATES_DIR = BASE_DIR / "templates"
+INDEX_HTML = TEMPLATES_DIR / "index.html"
+
 @app.get("/")
 async def root():
-    # Vérifier si le fichier index.html existe, sinon retourner le JSON d'API
-    index_path = "templates/index.html"
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
+    # Vérifier si le fichier index.html existe
+    if INDEX_HTML.exists():
+        return FileResponse(INDEX_HTML)
+    # Fallback: retourner le statut API
     return {"message": "AssistAdmin Pro API", "status": "online", "claude_ready": False}
 
 @app.get("/api/status")
