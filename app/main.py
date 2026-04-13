@@ -1,12 +1,16 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import Optional
 from app.services.claude_service import ClaudeService
 from app.models import get_db, init_db, User, Document, Order
+from app.auth import get_password_hash, authenticate_user, create_access_token, get_current_user
 import os
 import pathlib
-from datetime import datetime
+from datetime import datetime, timedelta
 
 app = FastAPI(title="AssistAdmin Pro API", version="1.0.0")
 
@@ -17,6 +21,36 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+security = HTTPBearer()
+
+# Modèles Pydantic pour les requêtes
+class UserRegister(BaseModel):
+    username: str
+    email: str
+    phone: Optional[str] = None
+    password: str
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user_id: int
+    username: str
+
+class DocumentCreate(BaseModel):
+    document_type: str
+    title: str
+    content: str
+    prompt_used: Optional[str] = None
+
+class OrderCreate(BaseModel):
+    document_id: int
+    amount: int
+    payment_method: str
 
 # Initialiser la base de données au démarrage
 @app.on_event("startup")
@@ -32,11 +66,11 @@ INDEX_HTML = TEMPLATES_DIR / "index.html"
 async def root():
     if INDEX_HTML.exists():
         return FileResponse(INDEX_HTML)
-    return {"message": "AssistAdmin Pro API", "status": "online", "claude_ready": False}
+    return {"message": "AssistAdmin Pro API", "status": "online"}
 
 @app.get("/api/status")
 async def api_status():
-    return {"message": "AssistAdmin Pro API", "status": "online", "claude_ready": False}
+    return {"message": "AssistAdmin Pro API", "status": "online"}
 
 @app.get("/api/test-claude")
 async def test_claude():
@@ -44,38 +78,103 @@ async def test_claude():
     result = cs.test_connection()
     return {"test_result": result}
 
-# Endpoints pour la gestion des utilisateurs
-@app.post("/api/users")
-async def create_user(username: str, email: str, phone: str = None, db: Session = Depends(get_db)):
+# ========== AUTHENTIFICATION ==========
+
+@app.post("/api/register", response_model=TokenResponse)
+async def register(user_data: UserRegister, db: Session = Depends(get_db)):
+    """Inscription d'un nouvel utilisateur"""
     # Vérifier si l'utilisateur existe déjà
-    existing_user = db.query(User).filter((User.username == username) | (User.email == email)).first()
+    existing_user = db.query(User).filter(
+        (User.username == user_data.username) | (User.email == user_data.email)
+    ).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="Utilisateur déjà existant")
+        raise HTTPException(status_code=400, detail="Nom d'utilisateur ou email déjà utilisé")
     
-    user = User(username=username, email=email, phone=phone)
+    # Créer le nouvel utilisateur
+    hashed_password = get_password_hash(user_data.password)
+    user = User(
+        username=user_data.username,
+        email=user_data.email,
+        phone=user_data.phone,
+        password_hash=hashed_password
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
-    return {"id": user.id, "username": user.username, "email": user.email, "phone": user.phone}
+    
+    # Créer le token
+    access_token = create_access_token(data={"sub": user.username})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user_id": user.id,
+        "username": user.username
+    }
 
-# Endpoints pour les documents
+@app.post("/api/login", response_model=TokenResponse)
+async def login(user_data: UserLogin, db: Session = Depends(get_db)):
+    """Connexion d'un utilisateur existant"""
+    user = authenticate_user(db, user_data.username, user_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Nom d'utilisateur ou mot de passe incorrect",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token = create_access_token(data={"sub": user.username})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user_id": user.id,
+        "username": user.username
+    }
+
+@app.get("/api/me")
+async def get_me(current_user: User = Depends(get_current_user)):
+    """Obtenir les informations de l'utilisateur connecté"""
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "email": current_user.email,
+        "phone": current_user.phone,
+        "created_at": current_user.created_at,
+        "is_active": current_user.is_active
+    }
+
+# ========== DOCUMENTS (protégés) ==========
+
 @app.post("/api/documents")
-async def save_document(user_id: int, document_type: str, title: str, content: str, prompt_used: str = None, db: Session = Depends(get_db)):
+async def save_document(
+    doc_data: DocumentCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Sauvegarder un document pour l'utilisateur connecté"""
     document = Document(
-        user_id=user_id,
-        document_type=document_type,
-        title=title,
-        content=content,
-        prompt_used=prompt_used
+        user_id=current_user.id,
+        document_type=doc_data.document_type,
+        title=doc_data.title,
+        content=doc_data.content,
+        prompt_used=doc_data.prompt_used
     )
     db.add(document)
     db.commit()
     db.refresh(document)
-    return {"id": document.id, "type": document.document_type, "title": document.title, "created_at": document.created_at}
+    return {
+        "id": document.id,
+        "type": document.document_type,
+        "title": document.title,
+        "created_at": document.created_at
+    }
 
-@app.get("/api/documents/{user_id}")
-async def get_user_documents(user_id: int, db: Session = Depends(get_db)):
-    documents = db.query(Document).filter(Document.user_id == user_id).order_by(Document.created_at.desc()).all()
+@app.get("/api/documents")
+async def get_user_documents(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Récupérer tous les documents de l'utilisateur connecté"""
+    documents = db.query(Document).filter(Document.user_id == current_user.id).order_by(Document.created_at.desc()).all()
     return [
         {
             "id": doc.id,
@@ -87,22 +186,66 @@ async def get_user_documents(user_id: int, db: Session = Depends(get_db)):
         for doc in documents
     ]
 
-# Endpoint pour les commandes
+@app.get("/api/documents/{document_id}")
+async def get_document(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Récupérer un document spécifique"""
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_id == current_user.id
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document non trouvé")
+    return {
+        "id": document.id,
+        "type": document.document_type,
+        "title": document.title,
+        "content": document.content,
+        "prompt_used": document.prompt_used,
+        "created_at": document.created_at
+    }
+
+# ========== COMMANDES (protégées) ==========
+
 @app.post("/api/orders")
-async def create_order(user_id: int, document_id: int, amount: int, payment_method: str, db: Session = Depends(get_db)):
+async def create_order(
+    order_data: OrderCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Créer une commande pour un document"""
+    # Vérifier que le document appartient à l'utilisateur
+    document = db.query(Document).filter(
+        Document.id == order_data.document_id,
+        Document.user_id == current_user.id
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document non trouvé")
+    
     order = Order(
-        user_id=user_id,
-        document_id=document_id,
-        amount=amount,
-        payment_method=payment_method
+        user_id=current_user.id,
+        document_id=order_data.document_id,
+        amount=order_data.amount,
+        payment_method=order_data.payment_method
     )
     db.add(order)
     db.commit()
     db.refresh(order)
-    return {"id": order.id, "amount": order.amount, "status": order.payment_status}
+    return {
+        "id": order.id,
+        "amount": order.amount,
+        "payment_method": order.payment_method,
+        "status": order.payment_status
+    }
+
+# ========== STATISTIQUES ==========
 
 @app.get("/api/stats")
 async def get_stats(db: Session = Depends(get_db)):
+    """Statistiques globales (publique)"""
     users_count = db.query(User).count()
     documents_count = db.query(Document).count()
     orders_count = db.query(Order).count()
