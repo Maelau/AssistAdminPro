@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 from app.services.claude_service import ClaudeService
 from app.models import get_db, init_db, User, Document, Order
-from app.auth import get_password_hash, authenticate_user, create_access_token, get_current_user
+from app.auth import hash_password as get_password_hash, authenticate_user, create_access_token, get_current_user
 import os
 import pathlib
 from datetime import datetime, timedelta

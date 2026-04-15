@@ -1,31 +1,29 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.models import User, get_db
 import os
+import hashlib
+import secrets
 
 # Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "votre_clé_secrète_très_longue_et_aléatoire_ici")
+SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 heures
-
-# Hachage des mots de passe
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Security
 security = HTTPBearer()
 
-def verify_password(plain_password, hashed_password):
-    """Vérifier le mot de passe"""
-    return pwd_context.verify(plain_password, hashed_password)
+def hash_password(password: str) -> str:
+    """Hacher un mot de passe avec SHA256 (simple mais fonctionnel)"""
+    return hashlib.sha256(password.encode()).hexdigest()
 
-def get_password_hash(password):
-    """Hacher le mot de passe"""
-    return pwd_context.hash(password)
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Vérifier le mot de passe"""
+    return hash_password(plain_password) == hashed_password
 
 def authenticate_user(db: Session, username: str, password: str):
     """Authentifier un utilisateur"""
