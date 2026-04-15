@@ -20,7 +20,7 @@ class User(Base):
     username = Column(String(100), unique=True, index=True, nullable=False)
     email = Column(String(255), unique=True, index=True, nullable=False)
     phone = Column(String(50))
-    password_hash = Column(String(255), nullable=False)  # Nouveau champ
+    password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
     
@@ -33,11 +33,11 @@ class Document(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    document_type = Column(String(50))  # cv, letter, dossier, correction
+    document_type = Column(String(50))
     title = Column(String(255))
     content = Column(Text)
     prompt_used = Column(Text)
-    status = Column(String(50), default="draft")  # draft, completed, paid
+    status = Column(String(50), default="draft")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -51,8 +51,8 @@ class Order(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     document_id = Column(Integer, ForeignKey("documents.id"))
-    amount = Column(Integer)  # en FCFA
-    payment_method = Column(String(50))  # orange_money, wave, mtn
+    amount = Column(Integer)
+    payment_method = Column(String(50))
     payment_status = Column(String(50), default="pending")
     transaction_id = Column(String(255))
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -62,7 +62,6 @@ class Order(Base):
     document = relationship("Document", back_populates="order")
 
 def get_db():
-    """Dépendance pour obtenir une session de base de données"""
     db = SessionLocal()
     try:
         yield db
@@ -70,5 +69,7 @@ def get_db():
         db.close()
 
 def init_db():
-    """Initialiser la base de données (créer les tables)"""
+    """Initialiser la base de données - recrée les tables si nécessaire"""
+    # Supprimer et recréer toutes les tables
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
