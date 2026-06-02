@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: assistadmin-mobile
+    runtime: static
+    buildCommand: |
+      cd ~/AssistAdminPro/assistadmin_mobile
+      flutter build web
+    staticPublishPath: ./build/web
+    envVars:
+      - key: FLUTTER_VERSION
+        value: 3.41.6
+    headers:
+      - path: /*
+        name: Cross-Origin-Embedder-Policy
+        value: credentialless
+      - path: /*
+        name: Cross-Origin-Opener-Policy
+        value: same-origin

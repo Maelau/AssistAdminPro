@@ -258,3 +258,29 @@ async def get_stats(db: Session = Depends(get_db)):
         "orders": orders_count,
         "revenue_fcfa": total
     }
+
+# ========== PAIEMENTS MOBILES ==========
+
+from app.payment.orange_money import process_payment
+
+class PaymentRequest(BaseModel):
+    service: str  # orange, wave, mtn
+    amount: int
+    phone: str
+    document_id: Optional[int] = None
+
+@app.post("/api/payment/initiate")
+async def initiate_payment(payment: PaymentRequest, db: Session = Depends(get_db)):
+    """Initier un paiement mobile"""
+    result = process_payment(payment.service, payment.amount, payment.phone)
+    return result
+
+@app.get("/api/payment/status/{transaction_id}")
+async def get_payment_status(transaction_id: str):
+    """Vérifier le statut d'un paiement"""
+    # Simuler la vérification
+    return {
+        "transaction_id": transaction_id,
+        "status": "completed",
+        "message": "Paiement confirmé"
+    }
